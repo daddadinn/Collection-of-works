@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>daddadinn® — Visual Designer Portfolio</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#111111;
+    --grey:#8a8a8a;
+    --line:#e8e8e8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter','Helvetica Neue','PingFang SC','Microsoft YaHei',-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--ink);color:#fff;}
+
+  /* ---------- Nav ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:28px 48px;
+    opacity:0;transform:translateY(-12px);
+    transition:opacity 1s ease .2s,transform 1s ease .2s;
+  }
+  nav.show{opacity:1;transform:none;}
+  .logo{font-weight:600;font-size:15px;letter-spacing:.02em;text-decoration:none;color:var(--ink);}
+  .logo sup{font-size:9px;font-weight:400;}
+  .nav-links{display:flex;gap:36px;}
+  .nav-links a{
+    color:var(--ink);text-decoration:none;font-size:13px;letter-spacing:.06em;
+    position:relative;
+  }
+  .nav-links a span{color:var(--grey);margin-right:6px;font-size:11px;}
+  .nav-links a::after{
+    content:'';position:absolute;left:0;bottom:-4px;width:0;height:1px;background:var(--ink);
+    transition:width .35s cubic-bezier(.65,0,.35,1);
+  }
+  .nav-links a:hover::after{width:100%;}
+
+  /* ---------- Hero ---------- */
+  .hero{position:relative;height:100vh;width:100%;overflow:hidden;}
+  /* 画布以视口中心为基准定位（50vw/50vh），不受页面滚动条影响，绝对居中 */
+  #stage{
+    position:absolute;left:50vw;top:50vh;width:100vw;height:100vh;
+    transform:translate(-50%,-50%);display:block;cursor:grab;
+  }
+  #stage.dragging{cursor:grabbing;}
+
+  .drag-hint{
+    position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:4;
+    font-size:10px;letter-spacing:.32em;color:#c4c4c4;text-transform:uppercase;
+    pointer-events:none;opacity:0;transition:opacity 1s ease 1s;
+  }
+  .drag-hint.show{opacity:1;}
+  .drag-hint.hide{opacity:0 !important;transition:opacity .5s ease;}
+
+  /* intro overlay */
+  #veil{
+    position:fixed;inset:0;background:var(--bg);z-index:40;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity 1.2s ease;
+  }
+  #veil.gone{opacity:0;}
+  #veil span{
+    font-size:13px;letter-spacing:.5em;color:var(--ink);text-transform:uppercase;
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+
+  /* ---------- Lightbox ---------- */
+  #lightbox{
+    position:fixed;inset:0;z-index:100;background:rgba(255,255,255,.92);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .45s ease;
+  }
+  #lightbox.open{opacity:1;pointer-events:auto;}
+  #lightbox figure{
+    max-width:min(72vw,860px);text-align:center;
+    transform:scale(.92);transition:transform .55s cubic-bezier(.22,1,.36,1);
+  }
+  #lightbox.open figure{transform:scale(1);}
+  #lightbox img{
+    max-width:100%;max-height:74vh;object-fit:contain;display:block;margin:0 auto;
+    box-shadow:0 30px 80px rgba(0,0,0,.14);
+  }
+  #lightbox figcaption{
+    margin-top:22px;font-size:13px;color:var(--grey);letter-spacing:.12em;
+  }
+  #lb-close{
+    position:absolute;top:34px;right:48px;background:none;border:none;cursor:pointer;
+    font-size:13px;letter-spacing:.2em;color:var(--ink);font-family:inherit;
+  }
+  #lb-close:hover{color:var(--grey);}
+  #lb-more{
+    display:inline-block;margin-top:14px;font-size:11px;letter-spacing:.22em;color:var(--ink);
+    text-decoration:none;border-bottom:1px solid var(--ink);padding-bottom:3px;
+    transition:color .3s,border-color .3s;
+  }
+  #lb-more:hover{color:var(--grey);border-color:var(--grey);}
+
+  /* ---------- 作品详情（全屏覆盖层） ---------- */
+  #detail{
+    position:fixed;inset:0;z-index:90;background:var(--bg);
+    overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .45s ease;
+  }
+  #detail.open{opacity:1;pointer-events:auto;}
+  .detail-inner{max-width:980px;margin:0 auto;padding:130px 48px 90px;}
+  .detail-inner h1{font-size:clamp(38px,5.4vw,72px);font-weight:500;letter-spacing:-.03em;line-height:1.05;}
+  .detail-inner h1 em{font-family:'Songti SC','Noto Serif SC',serif;font-style:normal;font-weight:400;color:var(--grey);font-size:.55em;margin-left:16px;}
+  .detail-meta{display:flex;gap:40px;font-size:12px;color:var(--grey);letter-spacing:.14em;margin:26px 0 60px;}
+  .detail-hero{width:100%;height:auto;display:block;}
+  .detail-desc{font-size:15px;line-height:2.2;color:#4a4a4a;max-width:640px;margin:80px 0;}
+  .detail-desc + .detail-desc{margin-top:-56px;}
+  .detail-next{
+    display:block;margin-top:110px;text-decoration:none;color:var(--ink);
+    border-top:1px solid var(--line);padding-top:38px;
+    font-size:11px;letter-spacing:.26em;color:var(--grey);
+  }
+  .detail-next strong{
+    display:block;margin-top:12px;color:var(--ink);
+    font-size:clamp(24px,3vw,40px);font-weight:500;letter-spacing:-.02em;
+    transition:opacity .3s;
+  }
+  .detail-next:hover strong{opacity:.45;}
+  #d-close{
+    position:fixed;top:34px;right:48px;z-index:95;background:none;border:none;cursor:pointer;
+    font-size:13px;letter-spacing:.2em;color:var(--ink);font-family:inherit;
+    opacity:0;pointer-events:none;transition:opacity .45s ease;
+  }
+  #d-close.show{opacity:1;pointer-events:auto;}
+  #d-close:hover{color:var(--grey);}
+
+  /* ---------- Sections ---------- */
+  section{padding:140px 48px;}
+  .sec-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:70px;
+  }
+  .sec-head h2{font-size:13px;font-weight:500;letter-spacing:.28em;text-transform:uppercase;}
+  .sec-head span{font-size:12px;color:var(--grey);letter-spacing:.1em;}
+
+  /* works index list */
+  .work-row{
+    display:grid;grid-template-columns:70px 1fr 260px;align-items:center;
+    padding:34px 0;border-bottom:1px solid var(--line);
+    text-decoration:none;color:var(--ink);position:relative;
+    transition:padding .4s cubic-bezier(.22,1,.36,1);
+  }
+  .work-row:hover{padding-left:18px;}
+  .work-row .idx{font-size:12px;color:var(--grey);letter-spacing:.1em;}
+  .work-row .ttl{font-size:clamp(22px,2.6vw,34px);font-weight:500;letter-spacing:-.02em;}
+  .work-row .cat{font-size:12px;color:var(--grey);letter-spacing:.1em;text-align:right;}
+  .work-row .arrow{
+    position:absolute;right:0;top:34px;font-size:18px;opacity:0;transform:translateX(-8px);
+    transition:opacity .35s,transform .35s;
+  }
+  .work-row:hover .arrow{opacity:1;transform:none;}
+
+  /* floating preview image follows cursor */
+  #preview{
+    position:fixed;width:300px;height:auto;max-height:440px;z-index:30;pointer-events:none;
+    object-fit:contain;background:#fff;opacity:0;transform:scale(.9);
+    transition:opacity .35s ease,transform .45s cubic-bezier(.22,1,.36,1);
+    box-shadow:0 24px 60px rgba(0,0,0,.16);
+  }
+  #preview.on{opacity:1;transform:scale(1);}
+
+  @media (max-width:820px){
+    .detail-inner{padding:100px 24px 70px;}
+    .detail-gallery{grid-template-columns:1fr;}
+    #d-close{right:24px;}
+  }
+
+  /* about */
+  .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;}
+  .about-grid .lead{
+    font-size:clamp(24px,2.8vw,38px);font-weight:400;line-height:1.5;letter-spacing:-.01em;
+  }
+  .about-grid .lead em{font-family:'Songti SC','Noto Serif SC',serif;font-style:normal;color:var(--grey);}
+  .about-right p{font-size:14px;line-height:2.1;color:#4a4a4a;margin-bottom:28px;}
+  .svc{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;}
+  .svc span{
+    font-size:12px;letter-spacing:.1em;color:var(--ink);
+    border:1px solid var(--line);border-radius:99px;padding:9px 20px;
+    transition:background .3s,color .3s;
+  }
+  .svc span:hover{background:var(--ink);color:#fff;}
+
+  /* footer */
+  footer{padding:120px 48px 48px;border-top:1px solid var(--line);}
+  .foot-cta{font-size:clamp(36px,5vw,72px);font-weight:500;letter-spacing:-.03em;line-height:1.1;}
+  .foot-cta a{color:var(--ink);text-decoration:none;border-bottom:2px solid var(--ink);transition:color .3s,border-color .3s;}
+  .foot-cta a:hover{color:var(--grey);border-color:var(--grey);}
+  .foot-bottom{
+    margin-top:90px;display:flex;justify-content:space-between;
+    font-size:12px;color:var(--grey);letter-spacing:.1em;
+  }
+  .foot-bottom a{color:var(--grey);text-decoration:none;margin-left:28px;}
+  .foot-bottom a:hover{color:var(--ink);}
+
+  .reveal{opacity:0;transform:translateY(36px);transition:opacity 1s ease,transform 1s cubic-bezier(.22,1,.36,1);}
+  .reveal.in{opacity:1;transform:none;}
+
+  /* WebGL 失败兜底 */
+  #fallback{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;z-index:3;background:var(--bg);
+  }
+  #fallback.show{display:flex;}
+  #fallback p{font-size:13px;color:var(--grey);letter-spacing:.1em;}
+
+  @media (max-width:820px){
+    nav,section,footer{padding-left:24px;padding-right:24px;}
+    .work-row{grid-template-columns:40px 1fr;}
+    .about-grid{grid-template-columns:1fr;gap:40px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="veil"><span>daddadinn</span></div>
+
+<nav id="nav">
+  <a class="logo" href="#">daddadinn<sup>®</sup></a>
+  <div class="nav-links">
+    <a href="#works"><span>01</span>作品 Work</a>
+    <a href="#about"><span>02</span>关于 About</a>
+    <a href="#contact"><span>03</span>联系 Contact</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <canvas id="stage"></canvas>
+  <div class="drag-hint" id="dragHint">Drag to rotate · 拖动旋转 · 点击放大</div>
+  <div id="fallback"><p>3D 引擎加载失败，请刷新重试</p></div>
+</header>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <button id="lb-close">CLOSE ×</button>
+  <figure>
+    <img id="lb-img" src="" alt="">
+    <figcaption id="lb-cap"></figcaption>
+    <a id="lb-more" href="#">VIEW PROJECT →</a>
+  </figure>
+</div>
+
+<!-- DETAIL -->
+<div id="detail">
+  <button id="d-close">CLOSE ×</button>
+  <div class="detail-inner" id="detailInner"></div>
+</div>
+
+<!-- WORKS -->
+<section id="works">
+  <div class="sec-head reveal"><h2>Selected Works · 精选作品</h2><span>14 PROJECTS</span></div>
+  <div id="workList"></div>
+</section>
+<img id="preview" src="" alt="">
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="sec-head reveal"><h2>About · 关于</h2><span>daddadinn®</span></div>
+  <div class="about-grid">
+    <p class="lead reveal">在画纸与像素之间，捕捉一瞬间的情绪 —— <em>Less, but better.</em></p>
+    <div class="about-right reveal">
+      <p>daddadinn 是一名视觉创作者，作品横跨绘画、插画、海报与拼贴。相信克制的力量：一支颜料、一支铅笔、一块留白，就能讲完整一个故事。</p>
+      <p>A visual creator working across painting, illustration, poster design and collage — believing in the power of restraint: one pigment, one pencil, one piece of white space can tell a whole story.</p>
+      <div class="svc">
+        <span>绘画 Painting</span>
+        <span>插画 Illustration</span>
+        <span>海报设计 Poster</span>
+        <span>拼贴艺术 Collage</span>
+        <span>图案设计 Pattern</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="contact">
+  <p class="foot-cta reveal">有项目想聊聊？<br><a href="mailto:hello@daddadinn.design">hello@daddadinn.design</a></p>
+  <div class="foot-bottom">
+    <span>© 2026 daddadinn® — ALL RIGHTS RESERVED</span>
+    <span>
+      <a href="#">Behance</a><a href="#">Instagram</a><a href="#">小红书</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   0. 作品数据（真实作品图，works/work-XX.jpg）
+   ============================================================ */
+const WORKS = [
+  {title:'光芒速写',     cat:'时尚插画 Fashion Illustration', en:'Radiate',  img:'works/work-01.jpg'},
+  {title:'法尼瓦伦泰',   cat:'插画 Illustration',             en:'Funny Valentine', img:'works/work-02.jpg'},
+  {title:'阴云',         cat:'绘画 Painting',                 en:'Overcast', img:'works/work-03.jpg'},
+  {title:'橱窗 BETS',    cat:'绘画 Painting',                 en:'Bets',     img:'works/work-04.jpg'},
+  {title:'海绵涂鸦',     cat:'涂鸦插画 Doodle',               en:'Sponge',   img:'works/work-05.jpg'},
+  {title:'在浪之间',     cat:'海报设计 Poster Design',        en:'Waves',    img:'works/work-06.jpg'},
+  {title:'拼贴手记',     cat:'拼贴艺术 Collage',              en:'Scrapbook',img:'works/work-07.jpg'},
+  {title:'花格',         cat:'图案设计 Pattern',              en:'Bloom',    img:'works/work-08.jpg'},
+  {title:'粉团',         cat:'角色设计 Character',            en:'Pink Pal', img:'works/work-09.jpg'},
+  {title:'棱镜',         cat:'绘画 Painting',                 en:'Prism',    img:'works/work-10.jpg'},
+  {title:'一颗蓝莓',     cat:'绘画 Painting',                 en:'A Blueberry', img:'works/work-11.jpg'},
+  {title:'蓝花格',       cat:'绘画 Painting',                 en:'Blue Bloom', img:'works/work-12.jpg'},
+  {title:'光谱',         cat:'绘画 Painting',                 en:'Spectrum', img:'works/work-13.jpg'},
+  {title:'中秋',         cat:'海报设计 Poster Design',        en:'Mooncake', img:'works/work-14.jpg'},
+];
+
+/* 作品描述（详情页文案） */
+const INFO = [
+  {d:'铅笔速写与克莱因蓝水彩的碰撞，时尚廓形在放射状光芒中定格。', e:'Pencil sketch meets cobalt watercolor — a fashion silhouette frozen in radiating light.'},
+  {d:'蓝色深渊里的法尼瓦伦泰，用单纯的笔触画出不简单的注视。', e:'Funny Valentine in a blue abyss, staring back with pure, simple strokes.'},
+  {d:'灰云压境时探出的半张脸，红眼是阴郁里唯一的光。', e:'Half a face peeking through the grey clouds — a red eye, the only light in the gloom.'},
+  {d:'蓝紫色调的油画小景，写着 BETS 的橱窗里汉堡静静发光。', e:'An oil-painted vignette in blue and violet — a burger glowing inside a window labeled BETS.'},
+  {d:'一次天真又狂野的涂鸦再创作，每一笔都带着蜡笔的颗粒感。', e:'A wild, childlike doodle remake — every stroke carries the grain of crayon.'},
+  {d:'黑白极简主义展览海报，网格中的海浪与衬线字体，在浪之间寻找答案。', e:'A black-and-white minimalist exhibition poster — waves in a grid, answers between them.'},
+  {d:'剪贴、文字与音乐的碎片拼成的手记，记录想要"逃离此地"的念想。', e:'A notebook of clippings, words and musical fragments — a longing to be far away from here.'},
+  {d:'蜡笔勾勒的黄色格子与自由曲线花朵，关于秩序与失控的图案练习。', e:'Crayon grid meets freehand blooms — a pattern study of order and abandon.'},
+  {d:'圆润柔软的粉色角色特写，表情里全是戏。', e:'A close-up of a soft, round pink character — all the drama in its expression.'},
+  {d:'同一张脸的两副面孔之间，穿过一道彩虹。', e:'Between two faces of the same head, a rainbow passes through.'},
+  {d:'亮绿底上一颗深色的蓝莓，简单的构图里藏着笔触的密度。', e:'A dark blueberry on vivid green — the density of brushwork inside a simple composition.'},
+  {d:'单色蓝的格子里开满花，同一支颜料画出浓淡层次。', e:'Flowers blooming in a monochrome blue grid — layers of light and dark from a single pigment.'},
+  {d:'彩虹从脸的一侧斜切而过，阴郁与绚烂只隔一线。', e:'A rainbow slices past half a face — gloom and brilliance separated by a single line.'},
+  {d:'节日海报练习：粉色纹样、花体英文与一枚冰皮月饼。', e:'A festival poster exercise — pink patterns, script lettering and a snow-skin mooncake.'},
+];
+
+/* ============================================================
+   1. 加载 Three.js（多 CDN 兜底）
+   ============================================================ */
+const THREE_SRCS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+  'https://unpkg.com/three@0.128.0/build/three.min.js',
+  'https://lib.baomitu.com/three.js/r128/three.min.js'
+];
+function loadThree(i){
+  if(i >= THREE_SRCS.length){ onThreeFail(); return; }
+  const s = document.createElement('script');
+  s.src = THREE_SRCS[i];
+  s.onload = () => initHero();
+  s.onerror = () => loadThree(i + 1);
+  document.head.appendChild(s);
+}
+function onThreeFail(){
+  document.getElementById('veil').classList.add('gone');
+  document.getElementById('fallback').classList.add('show');
+  showChrome();
+}
+/* 兜底：无论如何 6 秒后收起加载幕布，显示界面 */
+setTimeout(() => {
+  document.getElementById('veil').classList.add('gone');
+  showChrome();
+}, 6000);
+
+function showChrome(){
+  document.getElementById('nav').classList.add('show');
+}
+
+/* ============================================================
+   2. HERO — 图片旋转汇聚 → 散开成球 交互动画
+   ============================================================ */
+function initHero(){
+
+const canvas = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({canvas: canvas, antialias: true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0xffffff, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, .1, 100);
+camera.position.set(0, 0, 11.5);
+
+const group = new THREE.Group();
+scene.add(group);
+
+/* 球面均匀分布（斐波那契） */
+function fibSphere(i, n, r){
+  const phi = Math.acos(1 - 2 * (i + .5) / n);
+  const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+  return new THREE.Vector3(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.cos(phi),
+    r * Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+const R = 2.1;
+const planes = [];
+
+const texLoader = new THREE.TextureLoader();
+const PLANE_W = 0.66;   // 球面图片统一宽度，高度按原图比例
+
+WORKS.forEach((w, i) => {
+  /* 先给浅灰底占位（正方形），图片加载后按原比例重排 */
+  const mat = new THREE.MeshBasicMaterial({color: 0xf0f0f0});
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.6, 0.6),
+    mat
+  );
+  texLoader.load(w.img, t => {
+    t.minFilter = THREE.LinearFilter;
+    mat.map = t; mat.color.set(0xffffff); mat.needsUpdate = true;
+    /* 按图片原始宽高比重建平面：宽度统一，高度 = 宽 / 比例 */
+    const aspect = t.image.width / t.image.height;
+    mesh.geometry.dispose();
+    mesh.geometry = new THREE.PlaneGeometry(PLANE_W, PLANE_W / aspect);
+  });
+  mesh.userData = {work: w, index: i};
+  group.add(mesh);
+
+  planes.push({
+    mesh: mesh,
+    target: fibSphere(i, WORKS.length, R),
+    startAngle: Math.random() * Math.PI * 2,
+    startRadius: 6.5 + Math.random() * 3.5,
+    startY: (Math.random() - .5) * 7,
+    spin: .9 + Math.random() * .8,
+    delay: i * .09,
+  });
+});
+
+/* ---------- 入场动画时间线 ----------
+   phase1 (0 → 1.7s)        : 图片从外侧旋转汇聚到中心
+   phase2 (1.7s → 依次 +1.5s): 从中心散开成球型            */
+const clock = new THREE.Clock();
+let introDone = false;
+const P1 = 1.7, P2 = 1.5;
+
+const easeInOut   = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+const easeOutExpo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const easeOutBack = t => { const c = 1.35; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
+
+/* ---------- 拖拽旋转 + 惯性 ---------- */
+let rotX = 0, rotY = 0, velX = 0, velY = 0;
+let dragging = false, px = 0, py = 0, moved = 0;
+
+canvas.addEventListener('pointerdown', e => {
+  dragging = true; moved = 0; px = e.clientX; py = e.clientY;
+  canvas.classList.add('dragging');
+  canvas.setPointerCapture(e.pointerId);
+  document.getElementById('dragHint').classList.add('hide');
+});
+canvas.addEventListener('pointermove', e => {
+  if(!dragging) return;
+  const dx = e.clientX - px, dy = e.clientY - py;
+  moved += Math.abs(dx) + Math.abs(dy);
+  velY = dx * .005; velX = dy * .005;
+  rotY += velY; rotX += velX;
+  px = e.clientX; py = e.clientY;
+});
+canvas.addEventListener('pointerup', e => {
+  dragging = false;
+  canvas.classList.remove('dragging');
+  if(moved < 6) pick(e);
+});
+
+/* ---------- 点击放大 ---------- */
+const ray = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+function pick(e){
+  if(!introDone) return;
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects(group.children);
+  if(hits.length){
+    const u = hits[0].object.userData;
+    openLightbox(u.work, u.index);
+  }
+}
+
+function resize(){
+  const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  if(!introDone){
+    let allDone = true;
+    planes.forEach(p => {
+      const m = p.mesh;
+      if(t < P1){
+        const k = easeInOut(Math.min(t / P1, 1));
+        const ang = p.startAngle + t * p.spin * 2.2;
+        const r = p.startRadius * (1 - k);
+        m.position.set(Math.cos(ang) * r, p.startY * (1 - k), Math.sin(ang) * r);
+        m.scale.setScalar(1 - k * .45);
+        allDone = false;
+      } else {
+        const tt = Math.min(Math.max((t - P1 - p.delay) / P2, 0), 1);
+        if(tt < 1) allDone = false;
+        m.position.copy(p.target).multiplyScalar(Math.max(easeOutBack(tt), 0));
+        m.scale.setScalar(.55 + .45 * easeOutExpo(tt));
+      }
+    });
+    if(allDone){
+      introDone = true;
+      planes.forEach(p => { p.mesh.position.copy(p.target); p.mesh.scale.setScalar(1); });
+      rotY = t * .25;
+      document.getElementById('veil').classList.add('gone');
+      showChrome();
+      document.getElementById('dragHint').classList.add('show');
+    }
+    group.rotation.y = t * .25;
+    group.rotation.x = Math.sin(t * .4) * .08;
+  } else {
+    if(!dragging){
+      velX *= .95; velY *= .95;
+      rotY += velY + .0016;
+      rotX += velX;
+    }
+    rotX = Math.max(-1.1, Math.min(1.1, rotX));
+    group.rotation.y += (rotY - group.rotation.y) * .12;
+    group.rotation.x += (rotX - group.rotation.x) * .12;
+  }
+
+  planes.forEach(p => p.mesh.lookAt(camera.position));
+  renderer.render(scene, camera);
+}
+animate();
+
+} /* end initHero */
+
+loadThree(0);
+
+/* ============================================================
+   3. Lightbox / 作品列表 / 悬浮预览 / 滚动显现
+   ============================================================ */
+const lb = document.getElementById('lightbox');
+let lbIndex = 0;
+function openLightbox(work, index){
+  lbIndex = index;
+  document.getElementById('lb-img').src = work.img;
+  document.getElementById('lb-cap').textContent = work.title + ' — ' + work.cat;
+  lb.classList.add('open');
+}
+function closeLightbox(){ lb.classList.remove('open'); }
+document.getElementById('lb-close').addEventListener('click', closeLightbox);
+lb.addEventListener('click', e => { if(e.target === lb) closeLightbox(); });
+document.getElementById('lb-more').addEventListener('click', e => {
+  e.preventDefault();
+  closeLightbox();
+  location.hash = '#work/' + lbIndex;
+});
+
+/* ---------- 作品详情覆盖层 ---------- */
+const detail = document.getElementById('detail');
+const dClose = document.getElementById('d-close');
+
+function openDetail(i){
+  const w = WORKS[i], info = INFO[i];
+  const next = (i + 1) % WORKS.length;
+  document.getElementById('detailInner').innerHTML =
+    '<h1>' + w.en + '<em>' + w.title + '</em></h1>' +
+    '<div class="detail-meta"><span>' + w.cat + '</span><span>daddadinn®</span></div>' +
+    '<img class="detail-hero" src="' + w.img + '" alt="">' +
+    '<p class="detail-desc">' + info.d + '</p>' +
+    '<p class="detail-desc">' + info.e + '</p>' +
+    '<a class="detail-next" href="#work/' + next + '">NEXT PROJECT →' +
+      '<strong>' + WORKS[next].en + ' — ' + WORKS[next].title + '</strong></a>';
+  detail.scrollTop = 0;
+  detail.classList.add('open');
+  dClose.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeDetail(){
+  if(!detail.classList.contains('open')) return;
+  detail.classList.remove('open');
+  dClose.classList.remove('show');
+  document.body.style.overflow = '';
+  if(location.hash.indexOf('#work/') === 0) history.pushState('', document.title, location.pathname);
+}
+dClose.addEventListener('click', closeDetail);
+
+function route(){
+  const m = location.hash.match(/^#work\/(\d+)$/);
+  if(m && +m[1] < WORKS.length) openDetail(+m[1]);
+  else closeDetail();
+}
+addEventListener('hashchange', route);
+route();
+
+addEventListener('keydown', e => {
+  if(e.key === 'Escape'){ closeLightbox(); closeDetail(); }
+});
+
+const listEl = document.getElementById('workList');
+const preview = document.getElementById('preview');
+
+WORKS.forEach((w, i) => {
+  const a = document.createElement('a');
+  a.className = 'work-row reveal';
+  a.href = '#work/' + i;
+  a.innerHTML =
+    '<span class="idx">' + String(i + 1).padStart(2, '0') + '</span>' +
+    '<span class="ttl">' + w.title + ' ' + w.en + '</span>' +
+    '<span class="cat">' + w.cat + '</span>' +
+    '<span class="arrow">↗</span>';
+  a.addEventListener('mouseenter', () => {
+    preview.src = w.img;
+    preview.classList.add('on');
+  });
+  a.addEventListener('mouseleave', () => preview.classList.remove('on'));
+  listEl.appendChild(a);
+});
+
+addEventListener('mousemove', e => {
+  if(!preview.classList.contains('on')) return;
+  const x = Math.min(e.clientX + 30, innerWidth - 320);
+  const y = Math.max(20, Math.min(e.clientY - 190, innerHeight - 400));
+  preview.style.left = x + 'px';
+  preview.style.top = y + 'px';
+});
+
+const io = new IntersectionObserver(es => es.forEach(en => {
+  if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+}), {threshold:.12});
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
